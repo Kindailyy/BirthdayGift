@@ -424,7 +424,7 @@
     <div class="cake-area">
 
       <div class="candle" id="candle">
-        <div class="flame extinguished" id="flame"></div>
+        <div class="flame" id="flame"></div>
       </div>
 
       <div class="cake">
@@ -445,7 +445,7 @@
       🕯️ Make a wish and blow the candle!<br>
     </p>
 
-    <button class="mic-button" id="mic-btn" style="display: none;">Blow now!</button>
+    <button class="mic-button" id="mic-btn">Blow now!</button>
 
     <!-- Hidden message -->
     <div id="wish-message" class="show">
@@ -550,20 +550,44 @@
       document.getElementById("mic-btn");
 
     let isExtinguished = false;
+	let audioContext = null;
+	let stream = null;
+	let analyser = null;
+	let detecting = false;
 
-
+	  /* =========================================
+   EXTINGUISH CANDLE
+========================================= */
     function extinguishCandle() {
 
       if (isExtinguished) return;
 
       isExtinguished = true;
 
+	 // Turn off flame
       flame.classList.add("extinguished");
-
+		
+	// Show birthday message
       wishMessage.classList.add("show");
 
+	// Hide microphone button
       micBtn.style.display = "none";
 
+		// Stop microphone if running
+  if (stream) {
+    stream.getTracks().forEach(track => track.stop());
+    stream = null;
+  }
+
+  if (audioContext) {
+    audioContext.close().catch(() => {});
+    audioContext = null;
+  }
+
+  detecting = false;
+
+  // Launch celebration
+		
       launchConfetti();
 
       // Extra hearts
@@ -580,112 +604,104 @@
       extinguishCandle
     );
 
+	candle.addEventListener("touchend", function (event) {
+	  event.preventDefault();
+	  extinguishCandle();
+});
 
     /* =========================================
-       MICROPHONE
+       MICROPHONE BLOW DETECTION
     ========================================= */
 
     micBtn.addEventListener(
       "click",
-      async () => {
+      async FUNCTION () => {
+		  
+if (isExtinguished || detecting) return;
+        
+		  try {
 
-        try {
+         // Ask for microphone permission
+    stream = await navigator.mediaDevices.getUserMedia({
+      audio: true
+    });
 
-          if (
-            !navigator.mediaDevices ||
-            !navigator.mediaDevices.getUserMedia
-          ) {
-            throw new Error("Microphone unavailable");
-          }
+    audioContext = new (
+      window.AudioContext ||
+      window.webkitAudioContext
+    )();
 
-          const stream =
-            await navigator.mediaDevices.getUserMedia({
-              audio: true
-            });
+    await audioContext.resume();
 
-          const audioContext =
-            new (
-              window.AudioContext ||
-              window.webkitAudioContext
-            )();
+    analyser = audioContext.createAnalyser();
 
-          const analyser =
-            audioContext.createAnalyser();
+    analyser.fftSize = 512;
+    analyser.smoothingTimeConstant = 0.2;
 
-          const microphone =
-            audioContext.createMediaStreamSource(stream);
+    const microphone =
+      audioContext.createMediaStreamSource(stream);
 
-          microphone.connect(analyser);
+    microphone.connect(analyser);
 
-          analyser.fftSize = 256;
+    const bufferLength = analyser.fftSize;
+    const dataArray = new Uint8Array(bufferLength);
 
-          const bufferLength =
-            analyser.frequencyBinCount;
+    detecting = true;
 
-          const dataArray =
-            new Uint8Array(bufferLength);
+    micBtn.innerText = "💨 Blow now!";
 
-          micBtn.innerText =
-            "Blow now!";
+    function checkBlow() {
 
-          function checkVolume() {
+      if (!detecting || isExtinguished) return;
 
-            if (isExtinguished) return;
+      analyser.getByteTimeDomainData(dataArray);
 
-            analyser.getByteFrequencyData(
-              dataArray
-            );
+      let sum = 0;
 
-            let sum = 0;
+      for (let i = 0; i < dataArray.length; i++) {
 
-            for (
-              let i = 0;
-              i < bufferLength;
-              i++
-            ) {
-              sum += dataArray[i];
-            }
+        const value =
+          (dataArray[i] - 128) / 128;
 
-            const average =
-              sum / bufferLength;
-
-            if (average > 35) {
-
-              extinguishCandle();
-
-              stream
-                .getTracks()
-                .forEach(track =>
-                  track.stop()
-                );
-
-              audioContext.close();
-
-            } else {
-
-              requestAnimationFrame(
-                checkVolume
-              );
-
-            }
-          }
-
-          checkVolume();
-
-        } catch (error) {
-
-            alert(
-            "Please allow microphone access.\n\n" +
-            "If you're on iPhone, tap Allow when Safari asks for microphone permission.\n\n" +
-            "You can also simply tap the candle flame"
-        );
-
-          micBtn.innerText =
-            "🕯️ Click the Candle Instead";
-        }
-
+        sum += value * value;
       }
+
+      const rms =
+        Math.sqrt(sum / dataArray.length);
+
+      /*
+        RMS measures how loud the microphone input is.
+
+        A blow usually creates a sudden loud burst.
+        This threshold works better than averaging
+        frequency bins.
+      */
+
+      if (rms > 0.08) {
+
+        extinguishCandle();
+
+        return;
+      }
+
+      requestAnimationFrame(checkBlow);
+    }
+
+    checkBlow();
+
+  } catch (error) {
+
+    console.error(error);
+
+    alert(
+      "Microphone access was not allowed.\n\n" +
+      "You can still tap the candle to blow it out! 🕯️"
     );
+
+    micBtn.innerText = "🕯️ Tap the candle instead";
+  }
+
+});
 
     /* =========================================
        CONFETTI
