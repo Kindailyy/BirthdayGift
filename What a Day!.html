@@ -441,11 +441,11 @@
 
     </div>
 
-    /* <p class="instruction">
+<p class="instruction">
       🕯️ Make a wish and blow the candle!<br>
-    </p> */
+   </p> 
 
-/* <button class="mic-button" id="mic-btn" style="display: none;">Blow now!</button> */
+<button class="mic-button" id="mic-btn">Blow the candle</button> 
 
     <!-- Hidden message -->
     <div id="wish-message" class="show">
@@ -454,7 +454,8 @@
         ✨ Wish granted! ✨
         <br><br>
         Happy Birthday to Yan Paing
-        </p><p>Wishing you a wonderful day filled with joy, laughter, and everything your heart desires!  I hope this new year of your life brings you
+        </p>
+		<p>Wishing you a wonderful day filled with joy, laughter, and everything your heart desires!  I hope this new year of your life brings you
         endless happiness, good health, success,
         exciting adventures, and everything you've been
         wishing for.
@@ -615,93 +616,105 @@
 
     micBtn.addEventListener(
       "click",
-      async FUNCTION () => {
-		  
-if (isExtinguished || detecting) return;
-        
-		  try {
+      async () => {
 
-         // Ask for microphone permission
-    stream = await navigator.mediaDevices.getUserMedia({
-      audio: true
-    });
+        try {
 
-    audioContext = new (
-      window.AudioContext ||
-      window.webkitAudioContext
-    )();
+          if (
+            !navigator.mediaDevices ||
+            !navigator.mediaDevices.getUserMedia
+          ) {
+            throw new Error("Microphone unavailable");
+          }
 
-    await audioContext.resume();
+          const stream =
+            await navigator.mediaDevices.getUserMedia({
+              audio: true
+            });
 
-    analyser = audioContext.createAnalyser();
+          const audioContext =
+            new (
+              window.AudioContext ||
+              window.webkitAudioContext
+            )();
 
-    analyser.fftSize = 512;
-    analyser.smoothingTimeConstant = 0.2;
+          const analyser =
+            audioContext.createAnalyser();
 
-    const microphone =
-      audioContext.createMediaStreamSource(stream);
+          const microphone =
+            audioContext.createMediaStreamSource(stream);
 
-    microphone.connect(analyser);
+          microphone.connect(analyser);
 
-    const bufferLength = analyser.fftSize;
-    const dataArray = new Uint8Array(bufferLength);
+          analyser.fftSize = 256;
 
-    detecting = true;
+          const bufferLength =
+            analyser.frequencyBinCount;
 
-    micBtn.innerText = "💨 Blow now!";
+          const dataArray =
+            new Uint8Array(bufferLength);
 
-    function checkBlow() {
+          micBtn.innerText =
+            "Blow now!";
 
-      if (!detecting || isExtinguished) return;
+          function checkVolume() {
 
-      analyser.getByteTimeDomainData(dataArray);
+            if (isExtinguished) return;
 
-      let sum = 0;
+            analyser.getByteFrequencyData(
+              dataArray
+            );
 
-      for (let i = 0; i < dataArray.length; i++) {
+            let sum = 0;
 
-        const value =
-          (dataArray[i] - 128) / 128;
+            for (
+              let i = 0;
+              i < bufferLength;
+              i++
+            ) {
+              sum += dataArray[i];
+            }
 
-        sum += value * value;
+            const average =
+              sum / bufferLength;
+
+            if (average > 35) {
+
+              extinguishCandle();
+
+              stream
+                .getTracks()
+                .forEach(track =>
+                  track.stop()
+                );
+
+              audioContext.close();
+
+            } else {
+
+              requestAnimationFrame(
+                checkVolume
+              );
+
+            }
+          }
+
+          checkVolume();
+
+        } catch (error) {
+
+            alert(
+            "🎤 Please allow microphone access.\n\n" +
+            "If you're on iPhone, tap Allow when Safari asks for microphone permission.\n\n" +
+            "You can also simply tap the candle flame ❤️"
+        );
+
+          micBtn.innerText =
+            "🕯️ Click the Candle Instead";
+        }
+
       }
-
-      const rms =
-        Math.sqrt(sum / dataArray.length);
-
-      /*
-        RMS measures how loud the microphone input is.
-
-        A blow usually creates a sudden loud burst.
-        This threshold works better than averaging
-        frequency bins.
-      */
-
-      if (rms > 0.08) {
-
-        extinguishCandle();
-
-        return;
-      }
-
-      requestAnimationFrame(checkBlow);
-    }
-
-    checkBlow();
-
-  } catch (error) {
-
-    console.error(error);
-
-    alert(
-      "Microphone access was not allowed.\n\n" +
-      "You can still tap the candle to blow it out! 🕯️"
     );
-
-    micBtn.innerText = "🕯️ Tap the candle instead";
-  }
-
-});
 
     /* =========================================
        CONFETTI
