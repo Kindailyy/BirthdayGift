@@ -605,6 +605,19 @@
 
       isExtinguished = true;
 
+	// Make sure the birthday music is playing after the candle is blown.
+      if (birthdayMusic.paused) {
+        birthdayMusic.play().catch(() => {});
+      }
+      birthdayMusic.volume = 0.38;
+
+      wishMessage.classList.add("show");
+
+      micBtn.style.display = "none";
+
+      launchConfetti();
+    }	
+
 	 // Turn off flame
       flame.classList.add("extinguished");
 		
