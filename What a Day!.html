@@ -573,7 +573,18 @@
       document.addEventListener(eventName, startBirthdayMusic, { once: true, passive: true });
     });
 
+ // Make sure the birthday music is playing after the candle is blown.
+      if (birthdayMusic.paused) {
+        birthdayMusic.play().catch(() => {});
+      }
+      birthdayMusic.volume = 0.38;
 
+      wishMessage.classList.add("show");
+
+      micBtn.style.display = "none";
+
+    }	
+	  
     /* =========================================
        CANDLE
     ========================================= */
@@ -604,19 +615,6 @@
       if (isExtinguished) return;
 
       isExtinguished = true;
-
-	// Make sure the birthday music is playing after the candle is blown.
-      if (birthdayMusic.paused) {
-        birthdayMusic.play().catch(() => {});
-      }
-      birthdayMusic.volume = 0.38;
-
-      wishMessage.classList.add("show");
-
-      micBtn.style.display = "none";
-
-      launchConfetti();
-    }	
 
 	 // Turn off flame
       flame.classList.add("extinguished");
@@ -649,19 +647,6 @@
         setTimeout(createHeart, i * 80);
       }
     }
-
-
-    /* Click candle */
-
-    candle.addEventListener(
-      "click",
-      extinguishCandle
-    );
-
-	candle.addEventListener("touchend", function (event) {
-	  event.preventDefault();
-	  extinguishCandle();
-});
 
     /* =========================================
        MICROPHONE BLOW DETECTION
